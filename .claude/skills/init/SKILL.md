@@ -1,188 +1,128 @@
 ---
 name: init
-description: 프로젝트 초기화. 타입 선택 → 스캐폴딩 → 훅 자동 설치 → CLAUDE.md + docs/DESIGN.md. 사용법 /init
+description: 프로젝트 초기화. 소스 분석 또는 인터뷰로 CLAUDE.md + docs/rules/ 생성. 사용법 /init
 ---
 
-프로젝트를 처음부터 구성합니다. 스캐폴딩·훅·문서까지 한 번에.
+프로젝트의 CLAUDE.md와 docs/rules/를 생성합니다. 스캐폴딩은 하지 않습니다.
 
-## Step 1: 기존 상태 감지
+## Step 1: 소스 탐지
 
-- `package.json` / `pyproject.toml` / `go.mod` 존재?
-- `turbo.json` / `nx.json` / `pnpm-workspace.yaml` 존재?
-- `CLAUDE.md` 존재?
+하네스 파일(`.claude/`, `docs/rules/`, `agents/`, `setup.sh`, `requirements.txt`)을 제외하고 실제 프로젝트 소스가 있는지 확인한다.
 
-**기존 프로젝트면** → 유저에게 "CLAUDE.md·훅만 설치할까요?" 확인 후 Step 4로.
-**신규면** → Step 2로.
+**소스 있음** 판단 기준 (하나라도 해당):
+- `package.json` / `pyproject.toml` / `go.mod` / `Cargo.toml` 존재
+- `src/` / `app/` / `lib/` 디렉토리 존재
+- `turbo.json` / `nx.json` / `pnpm-workspace.yaml` 존재
 
-## Step 2: 프로젝트 타입 + 스택 한 번에 수집
+소스 있음 → Step 2A (분석 모드)
+소스 없음 → Step 2B (인터뷰 모드)
+
+---
+
+## Step 2A: 분석 모드 (소스 있을 때)
+
+아래 항목을 코드베이스에서 직접 읽어 감지한다.
+
+### 감지 항목
+- **프로젝트 타입**: turbo.json/nx.json → monorepo, Next.js → fullstack, React/Vue/Svelte → frontend, Express/FastAPI/NestJS → backend
+- **언어·프레임워크**: package.json `dependencies` / pyproject.toml
+- **패키지 매니저**: `pnpm-lock.yaml` → pnpm, `yarn.lock` → yarn, `package-lock.json` → npm, `poetry.lock` → poetry
+- **단위 테스트**: package.json `devDependencies`에서 vitest/jest/pytest 탐지
+- **E2E**: `@playwright/test` / `cypress` 탐지
+- **UI 라이브러리**: `tailwindcss` / `@mui` / `shadcn` 탐지
+- **DB**: `prisma` / `typeorm` / `sqlalchemy` / `drizzle` 탐지
+- **테스트 폴더**: `tests/` / `__tests__/` / `src/**/*.test.*` 패턴 탐지
+- **개발 서버 명령**: package.json `scripts.dev` 또는 `scripts.start`
+- **테스트 명령**: package.json `scripts.test`
+- **커버리지 명령**: package.json `scripts.coverage` 또는 `scripts.test:coverage`
+
+감지 후 불명확한 항목만 유저에게 한 번에 확인:
 
 ```
-어떤 프로젝트입니까? (모르는 항목 엔터)
+감지 결과 확인해주세요. 모르면 엔터.
 
-[타입]
-1. 단일 프론트엔드
-2. 단일 백엔드
+- 단위 테스트 명령: {감지값 또는 "?"}
+- 커버리지 명령: {감지값 또는 "?"}
+- DB: {감지값 또는 "없음"}
+```
+
+확인 받은 뒤 Step 3으로.
+
+---
+
+## Step 2B: 인터뷰 모드 (소스 없을 때)
+
+한 번에 모든 걸 묻지 않는다. 답변에 따라 필요한 것만 추가로 묻는다.
+
+**질문 1 — 프로젝트 타입:**
+```
+어떤 프로젝트입니까?
+
+1. 단일 프론트엔드 (React/Vue/Svelte 등)
+2. 단일 백엔드 (Express/FastAPI/NestJS 등)
 3. 풀스택 단일 (Next.js App Router 등)
 4. 모노레포 (Turborepo / Nx)
-
-[스택]
-- 언어·프레임워크 (예: TypeScript + React + Vite / Python + FastAPI)
-- 패키지 매니저 (npm / pnpm / poetry / ...)
-- 단위 테스트 (Vitest / Jest / pytest / ...)
-- E2E (Playwright / 없음) ← 프론트 계열
-- UI 라이브러리 (Tailwind / shadcn/ui / MUI / 없음) ← 프론트 계열
-- DB (PostgreSQL / SQLite / ...) ← 백엔드 계열
-
-[아키텍처]
-- 패턴 (MVC / DDD / Layered / Clean / 없음)
-- 폴더 구조 (feature-based / layer-based / domain-based)
-
-[모노레포만]
-- 툴 (Turborepo / Nx / pnpm workspace)
-- apps/ 목록 (예: web, api)
-- packages/ 목록 (예: ui, utils)
-
-[기타]
-- 테스트 폴더 위치 (src/__tests__ / 소스 옆 / tests/)
 ```
 
-## Step 3: 스캐폴딩 실행
-
-타입·스택에 맞는 명령 실행. 실행 전 명령을 유저에게 보여주고 확인.
-
-| 시나리오       | 명령                                              |
-| -------------- | ------------------------------------------------- |
-| React + Vite   | `npm create vite@latest . -- --template react-ts` |
-| Next.js        | `npx create-next-app@latest .`                    |
-| Node + Express | `npm init -y` + Express 설치                      |
-| FastAPI        | `pip install fastapi uvicorn pytest`              |
-| NestJS         | `npx @nestjs/cli new .`                           |
-| Turborepo      | `npx create-turbo@latest .`                       |
-| Nx             | `npx create-nx-workspace@latest .`                |
-
-**프론트 계열이면 Playwright 자동 설치**:
-
+**질문 2 — 스택 (타입 답변 후):**
 ```
-npm install -D @playwright/test
-npx playwright install
+스택을 알려주세요. (모르는 항목 엔터)
+
+- 언어·프레임워크:
+- 패키지 매니저 (npm/pnpm/poetry/...):
+- 단위 테스트 (Vitest/Jest/pytest/...):
 ```
 
-**모노레포**: 스캐폴딩 후 실제 생성된 `apps/*`, `packages/*` 목록 감지 → Step 5에 전달.
+**질문 3 — 타입별 추가 질문:**
+- 프론트 포함(1/3/4): `E2E (Playwright/없음):` + `UI 라이브러리 (Tailwind/shadcn/MUI/없음):`
+- 백엔드 포함(2/3/4): `DB (PostgreSQL/SQLite/없음):`
+- 모노레포(4): `apps/ 목록:` + `packages/ 목록:`
 
-## Step 4: 훅 자동 설치 (docs/harness.md 참조)
+답변 완료 후 Step 3으로.
 
-`docs/harness.md` 읽어 스택별 적절한 훅 구성:
+---
 
-### Node/TypeScript
+## Step 3: CLAUDE.md 생성
 
-```
-npm install -D eslint prettier husky lint-staged
-npx husky init
-```
-
-`.husky/pre-commit` 생성 (lint-staged 실행).
-`package.json`에 lint-staged 설정 추가.
-ESLint 기본 규칙 파일 생성 (`no-console`, `no-explicit-any` 등).
-
-### Python
-
-```
-pip install ruff pre-commit
-pre-commit install
-```
-
-`.pre-commit-config.yaml` 생성 (ruff + ruff-format 훅).
-
-### Claude Code 훅 (공통)
-
-`.claude/hooks/pre_edit.sh` 생성:
-
-```bash
-FILE=$(echo $TOOL_INPUT | jq -r '.file_path')
-[[ "$FILE" == *.ts* ]] && npx eslint "$FILE"
-[[ "$FILE" == *.py ]] && ruff check "$FILE"
-exit $?
-```
-
-`.claude/settings.json`에 PreToolUse 훅 등록.
-
-## Step 5: .claudeignore 생성
-
-프로젝트 루트에:
-
-```
-node_modules/
-.git/
-dist/
-build/
-.next/
-.turbo/
-.nx/
-coverage/
-.venv/
-__pycache__/
-.env
-.env.*
-!.env.example
-test-results/
-playwright-report/
-```
-
-## Step 6: CLAUDE.md 생성
-
-### 단일 프로젝트 (타입 1/2/3)
-
-루트에 1개:
+감지/인터뷰 결과로 루트에 CLAUDE.md 작성.
 
 ```markdown
 # CLAUDE.md
 
 ## 프로젝트 타입
 
-frontend | backend | fullstack
+{frontend | backend | fullstack | monorepo}
 
 ## 기술 스택
 
-- 언어·프레임워크
-- 패키지 매니저
-- 단위 테스트
-- E2E (프론트만)
-- UI 라이브러리 (프론트만)
-- DB (백엔드만)
+- 언어·프레임워크: {값}
+- 패키지 매니저: {값}
+- 단위 테스트: {값}
+- E2E: {값 — 프론트 계열만}
+- UI 라이브러리: {값 — 프론트 계열만}
+- DB: {값 — 백엔드 계열만}
 
 ## 아키텍처
 
-- 패턴
-- 폴더 구조
-
-## 테스트 폴더
-
-{위치}
-
-## 설치 명령
-
-{명령}
-
-## 단위 테스트 명령
-
-- 전체 / 단일 파일 / 커버리지
-
-## E2E 명령 (프론트만)
-
-- 헤디드 (기본): npx playwright test --headed # 브라우저 띄워 시각 확인
-- 헤드리스 (CI 등): npx playwright test
+- 테스트 폴더: {위치}
 
 ## 개발 서버
 
 {명령}
 
+## 단위 테스트 명령
+
+- 전체: {명령}
+- 커버리지: {명령}
+
+## E2E 명령 (프론트 계열만)
+
+- 로컬: {명령} --headed
+- CI: {명령}
+
 ## 보안 스캔
 
-{명령 (npm audit / pip-audit / ...)}
-
-## 코드 컨벤션
-
-(린트가 자동 적용. 예외 사례만 여기에.)
+{npm audit / pip-audit / ...}
 
 ## 참조 문서
 
@@ -195,195 +135,39 @@ frontend | backend | fullstack
 | SDD 트랙 | [docs/rules/dev-flow.md](docs/rules/dev-flow.md) |
 ```
 
-### 모노레포 (타입 4)
+모노레포면 루트 CLAUDE.md 생성 후 `apps/*`, `packages/*`별로 단일 프로젝트 형식 CLAUDE.md 추가 생성.
 
-**루트 `CLAUDE.md`**:
+---
 
-```markdown
-# CLAUDE.md (루트)
+## Step 4: docs/rules/ 생성
 
-## 프로젝트 타입
+`docs/rules/` 없으면 생성.
 
-monorepo
+**분석 모드**: 코드베이스 읽어서 초안 작성.
+- `forbidden-patterns.md`: 실제 코드에서 안티패턴 탐지 후 금지 항목 등재. 발견 안 된 것도 스택 기반으로 추가.
+- `folder-conventions.md`: 실제 폴더·파일 구조 역산해서 현재 규약 기술.
+- `commands.md`: package.json / pyproject.toml / Makefile에서 실제 스크립트 추출.
 
-## 모노레포 툴
+**인터뷰 모드**: 플레이스홀더로 기본 틀만 생성 (유저가 채울 것).
 
-Turborepo | Nx | pnpm workspace
+두 모드 공통 — `dev-workflow.md`, `dev-flow.md`는 이미 있으면 덮어쓰지 않는다.
 
-## 워크스페이스 구조
+---
 
-```
-apps:
-  - web: {스택}
-  - api: {스택}
-packages:
-  - ui / utils / ...
-```
-
-## 전체 빌드 / 테스트
-
-- turbo build / turbo test
-
-## 패키지별 CLAUDE.md
-
-각 `apps/*`, `packages/*`/CLAUDE.md 참조.
-```
-
-**각 `apps/*`, `packages/*` 루프**: package.json 읽어 스택 감지 → 각 디렉토리에 단일 프로젝트 형식 CLAUDE.md 생성. 감지 불명확한 항목만 유저에게 한 번에 확인:
+## Step 5: 완료 안내
 
 ```
-감지 결과 확인해주세요:
-
-apps/web:
-- 단위 테스트: Vitest (맞나요?)
-- UI 라이브러리: (없음 — 추가하시겠습니까?)
-
-apps/api:
-- 단위 테스트: Jest (맞나요?)
-- DB: (없음)
-```
-
-## Step 6.5: docs/rules/ 생성
-
-`docs/rules/` 디렉토리 생성. `dev-workflow.md`·`dev-flow.md`는 하네스 고정 파일로 복사.
-
-아래 3개 파일은 **기존 프로젝트 여부**에 따라 다르게 생성:
-
-### 기존 프로젝트 (코드베이스 존재)
-
-코드베이스를 분석해서 초안 자동 작성:
-
-- **forbidden-patterns.md**: 실제 코드에서 안티패턴 탐지 (localStorage 토큰 저장, any 남용, useEffect fetch 등). 발견된 패턴은 "현재 위반 사례" 주석과 함께 금지 항목으로 등재. 발견 안 된 것도 스택 기반으로 관련 항목 추가.
-- **folder-conventions.md**: 실제 폴더·파일 구조 읽어서 현재 규약 역산. 파일명 패턴, 테스트 위치, export 방식 등 현황 기술 후 "TO-DO: 정비 필요" 항목 표시.
-- **commands.md**: `package.json` / `pyproject.toml` / `Makefile` 등에서 실제 스크립트 추출해서 명령어 채움.
-
-### 신규 프로젝트
-
-플레이스홀더 주석으로 기본 틀만 생성:
-
-**forbidden-patterns.md**:
-```markdown
-# 금지 패턴
-<!-- 이 파일은 에이전트 프리로드 대상입니다. 위반 = 즉시 reject. -->
-<!-- 프로젝트 규약에 맞게 항목을 채워주세요. -->
-
-## 보안
-<!-- 예: 토큰을 localStorage에 저장 금지 -->
-
-## 타입/품질
-<!-- 예: any 남용, @ts-ignore 무근거 사용 금지 -->
-
-## 프로세스
-<!-- 예: Conventional Commits 위반 금지 -->
-```
-
-**folder-conventions.md**:
-```markdown
-# 폴더 규약
-<!-- 이 파일은 에이전트 프리로드 대상입니다. -->
-<!-- 파일명 규칙, 테스트 위치, export 방식 등을 기술해주세요. -->
-
-## 파일명
-<!-- 예: 컴포넌트 PascalCase, 유틸 kebab-case -->
-
-## 테스트 위치
-<!-- 예: tests/unit/ 하위에 src/ 트리 미러링 -->
-
-## Export
-<!-- 예: named export 기본, page.tsx만 default -->
-```
-
-**commands.md**:
-```markdown
-# 명령어
-<!-- 이 파일은 에이전트 프리로드 대상입니다. -->
-
-## 개발 서버
-<!-- 예: pnpm dev -->
-
-## 단위 테스트
-<!-- 전체 / 단일 파일 / 커버리지 -->
-
-## E2E
-<!-- headed(기본) / headless -->
-
-## 보안 스캔
-<!-- 예: pnpm audit -->
-```
-
-## Step 7: docs/DESIGN.md 생성 (프론트 포함 타입만)
-
-루트에 1개:
-
-```markdown
-# DESIGN.md
-
-## 색상
-
-| 역할        | 값      |
-| ----------- | ------- |
-| 프라이머리  | #2563EB |
-| 위험        | #DC2626 |
-| 성공        | #16A34A |
-| 배경        | #FFFFFF |
-| 표면        | #F9FAFB |
-| 텍스트 기본 | #111827 |
-| 텍스트 보조 | #6B7280 |
-| 보더        | #E5E7EB |
-
-## 타이포그래피
-
-| 역할   | 크기     | 굵기 |
-| ------ | -------- | ---- |
-| 제목 1 | 2rem     | 700  |
-| 제목 2 | 1.5rem   | 600  |
-| 본문   | 1rem     | 400  |
-| 보조   | 0.875rem | 400  |
-
-## 간격 (4px 스케일)
-
-4 / 8 / 12 / 16 / 24 / 32 / 48 / 64
-
-## 보더 반경
-
-기본 8px / 버튼 6px / 카드 12px
-
-## 반응형
-
-모바일 ~767px / 태블릿 768~1023px / 데스크탑 1024px~
-
-## 터치 타겟
-
-최소 44×44px
-```
-
-## Step 8: 초기 Git 커밋
-
-```
-git init
-git add .
-git commit -m "chore: 프로젝트 초기화"
-```
-
-## Step 9: 완료 안내
-
-```
-✓ 스캐폴딩 ({타입}: {스택})
-✓ 훅 설치 (ESLint/Ruff + husky/pre-commit + .claude/hooks)
-✓ .claudeignore
-✓ CLAUDE.md {모노레포면: 루트 + apps/*, packages/*}
-✓ docs/rules/ (forbidden-patterns.md · folder-conventions.md · commands.md · dev-workflow.md · dev-flow.md)
-{프론트면: ✓ docs/DESIGN.md}
-✓ 초기 Git 커밋
+✓ CLAUDE.md 생성 ({분석 모드 | 인터뷰 모드})
+✓ docs/rules/ ({분석: 자동 작성 | 인터뷰: 플레이스홀더})
 
 다음 단계:
-1. /planning {기능명}  — 기획서 작성
-2. /dev {기능명}        — 스펙 생성 → 슬라이스별 개발·리뷰·테스트 자동 수행
+- /planning {기능명}  — 기획서 작성
+- /spec {기능명}      — 스펙 생성
 ```
 
 ## 규칙
 
-- 스캐폴딩·훅 설치 전 명령 실행 예정을 유저에게 보여주고 확인
-- 기존 프로젝트면 스캐폴딩 건너뛰기
-- 모노레포는 반드시 패키지별 CLAUDE.md 생성
+- 스캐폴딩·패키지 설치 금지 — 이 스킬은 문서만 생성한다
+- 기존 CLAUDE.md 있으면 덮어쓰기 전에 유저 확인
+- 감지 불명확한 항목만 유저에게 질문 — 전부 다 묻지 않는다
 - 실패 시 즉시 유저 보고 후 중단

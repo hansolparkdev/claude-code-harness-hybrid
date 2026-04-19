@@ -97,6 +97,20 @@ COVERAGE: 라인 XX% / 브랜치 XX% / 함수 XX%
 
 프리로드 완료 라인이 없으면 리뷰어가 자동 reject.
 
+## 코드 리뷰 (최종 검증 후 직접 실행)
+
+모든 task 완료 + 최종 검증 통과 후 리뷰어 서브에이전트를 호출하지 않는다. 대신 Bash로 직접 실행한다:
+
+```bash
+agents/.venv/bin/python agents/reviewer.py --files <CHANGED_FILES 목록> --context "<FEATURE> 구현"
+```
+
+- 출력 JSON의 `result`가 `PASS` → 완료
+- `FAIL` → `issues`를 반영해 해당 파일 수정 → 테스트 재실행 → 다시 reviewer.py 실행 (최대 3회)
+- 3회 후에도 FAIL → 유저 보고 후 중단
+
+리뷰어 서브에이전트 호출 금지. Bash 실행만 사용한다.
+
 ## 리뷰 피드백 재호출 시
 - 피드백 내용만 보고 해당 파일 수정 → 해당 테스트 재실행 → PASS 확인
 - 커버리지는 의미있는 변경 시에만 재산출
