@@ -1,38 +1,66 @@
-# claude-harness
+# claude-code-harness-hybrid
 
-Claude Code 기반 AI 개발 워크플로우 하네스.
+Claude Code 하네스에 Python 기반 외부 모델(GPT-4o-mini 등)을 혼합한 하이브리드 에이전트 워크플로우.
 
-에이전트·스킬·훅·규칙 문서를 새 프로젝트에 그대로 이식할 수 있는 템플릿입니다.
+## 핵심 아이디어
+
+기존 하네스는 모든 에이전트를 Claude 서브에이전트로 실행합니다. 매번 서브에이전트를 열면 시스템 프롬프트·툴 정의 등 고정 비용(~17k 토큰)이 반복 소모되고, 메인 컨텍스트를 거치는 왕복 구조가 토큰 낭비와 컨텍스트 오염을 유발합니다.
+
+**비평·리뷰처럼 입출력이 단순한 역할**은 Python 스크립트로 분리해 에이전트 내부에서 직접 호출합니다. 메인을 거치지 않으므로 왕복이 사라지고, Claude 고정 비용 없이 더 저렴한 모델로 처리할 수 있습니다.
+
+## 구조 변경
+
+**기존**
+```
+개발 에이전트 → 메인 → 리뷰어 에이전트 → 메인 → 개발 에이전트
+기획 에이전트 → 메인 → 비평 에이전트  → 메인 → 기획 에이전트
+```
+
+**개선**
+```
+개발 에이전트 → python agents/reviewer.py → 피드백 → 내부 수정
+기획 에이전트 → python agents/critic.py  → 피드백 → 내부 수정
+```
+
+## 트레이드오프
+
+| | 기존 | 개선 |
+|--|------|------|
+| 리뷰·비평 토큰 | Claude 고정비용 매번 | Python 호출, 고정비용 없음 |
+| 메인 컨텍스트 | 왕복마다 오염 | 보호됨 |
+| 피드백 정확도 | 메인 거쳐서 희석 | 에이전트가 직접 수신 |
+| 모델 다양성 | Claude 단일 | GPT-4o-mini 등 교차 검증 |
+| 의존성 | 없음 | Python 환경 필요 |
 
 ## 구성
 
 ```
 .claude/
-  agents/         에이전트 6개 (기획·아키텍트·개발·리뷰어·테스터·비평)
-  skills/         스킬 4개 (/init · /planning · /spec · /dev)
-  hooks/          Claude Code 훅 (파일 수정 전 ESLint, 서버 중복 기동 차단)
-  settings.json   훅 등록 설정
+  agents/
+    developer.md      Claude 서브에이전트 (TDD 구현)
+    planner.md        Claude 서브에이전트 (기획서 작성)
+    architect.md      Claude 서브에이전트 (스펙 산출)
+    tester.md         Claude 서브에이전트 (E2E)
+  skills/
+    dev/SKILL.md      리뷰어 호출을 python으로 변경
+    planning/SKILL.md 비평 호출을 python으로 변경
+
+agents/               Python 에이전트
+  reviewer.py         GPT-4o-mini 기반 코드 리뷰
+  critic.py           GPT-4o-mini 기반 기획서 비평
 
 docs/
-  harness.md      훅·에이전트 설계 개념
-  rules/
-    dev-workflow.md     에이전트별 워크플로우 규율 (고정)
-    dev-flow.md         SDD 트랙 정의 (고정)
-    forbidden-patterns.md   금지 패턴 (프로젝트별 작성)
-    folder-conventions.md   폴더 규약 (프로젝트별 작성)
-    commands.md             명령어 (프로젝트별 작성)
+  hybrid-design.md    설계 상세
+  harness.md          훅·에이전트 설계 개념
+  rules/              워크플로우 규율
 ```
 
 ## 워크플로우
 
 ```
-/planning {기능명}   기획서 작성 (기획 에이전트 + 비평 에이전트)
-/spec {기능명}       스펙 산출 (아키텍트 에이전트)
-/dev {기능명}        개발·리뷰·테스트·아카이브 자동 수행
+/planning → 기획 에이전트 → critic.py → 피드백 반영 → plan.md
+/spec     → 아키텍트 에이전트 → 스펙 산출
+/dev      → 개발 에이전트 → reviewer.py → 피드백 반영 → 완료
 ```
 
-## 새 프로젝트에 적용
-
-1. 이 레포의 `.claude/`와 `docs/` 폴더를 프로젝트 루트에 복사
-2. `/init` 실행 → CLAUDE.md + `docs/rules/` 3개 파일 자동 생성
-3. `/planning` → `/spec` → `/dev` 순서로 개발 시작
+자세한 설계는 [docs/hybrid-design.md](docs/hybrid-design.md) 참조.
