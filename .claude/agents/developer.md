@@ -107,6 +107,7 @@ agents/.venv/bin/python agents/reviewer.py --files <CHANGED_FILES 목록> --cont
 
 - 출력 JSON의 `result`가 `PASS` → 완료
 - `FAIL` → `issues`를 반영해 해당 파일 수정 → 테스트 재실행 → 다시 reviewer.py 실행 (최대 3회)
+- `ERROR` → Python 스크립트 실행 오류. developer가 직접 금지 패턴 체크리스트를 검토 후 판단하고 진행
 - 3회 후에도 FAIL → 유저 보고 후 중단
 
 리뷰어 서브에이전트 호출 금지. Bash 실행만 사용한다.

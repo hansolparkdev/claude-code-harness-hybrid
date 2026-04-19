@@ -34,6 +34,7 @@ agents/.venv/bin/python agents/critic.py --plan {PLAN_PATH} --round {N}
 
 - 출력 JSON의 `result`가 `PASS` → 완료
 - `FAIL` → issues를 아래 기준으로 분류 후 처리 → 다시 실행 (최대 3회)
+- `ERROR` → Python 스크립트 실행 오류. planner가 직접 PASS 기준 3가지를 검토 후 판단하고 진행
 - 3회 후에도 FAIL → plan.md 상단에 경고 헤더 추가 후 완료
 
 ### FAIL 반영 기준

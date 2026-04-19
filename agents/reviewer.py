@@ -94,15 +94,24 @@ def main() -> int:
         HumanMessage(content=user_message),
     ]
 
-    response = llm.invoke(messages)
-    raw = response.content.strip()
+    try:
+        response = llm.invoke(messages)
+        raw = response.content.strip()
 
-    # JSON 블록 추출 (```json ... ``` 감싸인 경우 대비)
-    if raw.startswith("```"):
-        lines = raw.splitlines()
-        raw = "\n".join(lines[1:-1] if lines[-1] == "```" else lines[1:])
+        if raw.startswith("```"):
+            lines = raw.splitlines()
+            raw = "\n".join(lines[1:-1] if lines[-1] == "```" else lines[1:])
 
-    result = json.loads(raw)
+        result = json.loads(raw)
+    except Exception as e:
+        # 실행 오류 시 수동 리뷰 모드로 전환 — developer가 직접 판단
+        print(json.dumps({
+            "result": "ERROR",
+            "error": str(e),
+            "fallback": "Python 스크립트 실행 오류. developer가 직접 코드를 검토하세요.",
+        }, ensure_ascii=False))
+        return 2
+
     print(json.dumps(result, ensure_ascii=False))
     return 0 if result.get("result") == "PASS" else 1
 
