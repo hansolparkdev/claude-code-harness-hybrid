@@ -13,7 +13,6 @@
 
 import argparse
 import json
-import subprocess
 import sys
 from pathlib import Path
 
@@ -113,16 +112,8 @@ def main() -> int:
         }, ensure_ascii=False))
         return 2
 
-    rc = 0 if result.get("result") == "PASS" else 1
-    subprocess.run([
-        sys.executable, "agents/logger.py",
-        "--event", "reviewer",
-        "--context", args.context,
-        "--result", result.get("result", ""),
-        "--issues", json.dumps(result.get("issues", []), ensure_ascii=False),
-    ], check=False)
     print(json.dumps(result, ensure_ascii=False))
-    return rc
+    return 0 if result.get("result") == "PASS" else 1
 
 
 if __name__ == "__main__":
